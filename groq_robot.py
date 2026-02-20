@@ -270,8 +270,9 @@ def send_to_esp32(esp32_ip, audio_b64, motion, face):
 # ─────────────────────────────────────────────
 # MAIN ENDPOINT
 # POST /talk
-# Receives: text + session_id + esp32_ip
-# Server processes and sends to ESP32 directly
+# Receives: text + session_id
+# Server processes and returns audio + commands to app
+# App forwards to ESP32 locally
 # ─────────────────────────────────────────────
 @app.route("/talk", methods=["POST"])
 def talk():
@@ -279,13 +280,9 @@ def talk():
         data = request.get_json()
         user_text = data.get("text", "")
         session_id = data.get("session_id", "default")
-        esp32_ip = data.get("esp32_ip", "")
-
-        if not esp32_ip:
-            return jsonify({"error": "Missing esp32_ip parameter"}), 400
 
         if not user_text:
-            return jsonify({"error": "No text provided"}), 400
+            return jsonify({"success": False, "error": "No text provided"}), 200
 
         print(f"[USER TEXT] {user_text}")
 
@@ -306,12 +303,10 @@ def talk():
         # Step 5: Base64 encode
         audio_b64 = base64.b64encode(audio_wav).decode('utf-8')
 
-        # Step 6: Send to ESP32
-        esp32_success = send_to_esp32(esp32_ip, audio_b64, motion, face)
-
-        # Step 7: Return status to Flutter app
+        # Step 6: Return everything to app (app will forward to ESP32)
         return jsonify({
-            "success": esp32_success,
+            "success": True,
+            "audio_base64": audio_b64,
             "transcript": user_text,
             "response": spoken_text,
             "motion": motion,
@@ -320,7 +315,7 @@ def talk():
 
     except Exception as e:
         print(f"[ERROR] {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 200
 
 
 # ─────────────────────────────────────────────
@@ -332,10 +327,9 @@ def talk_text():
         data = request.get_json()
         user_text = data.get("text", "")
         session_id = data.get("session_id", "default")
-        esp32_ip = data.get("esp32_ip", "")
 
         if not user_text:
-            return jsonify({"error": "No text provided"}), 400
+            return jsonify({"success": False, "error": "No text provided"}), 200
 
         raw_llm_response = get_llm_response(session_id, user_text)
         spoken_text, motion, face = parse_response(raw_llm_response)
@@ -344,21 +338,16 @@ def talk_text():
         audio_wav = convert_to_esp32_wav(audio_mp3)
         audio_b64 = base64.b64encode(audio_wav).decode('utf-8')
 
-        # Send to ESP32 if IP provided
-        esp32_success = False
-        if esp32_ip:
-            esp32_success = send_to_esp32(esp32_ip, audio_b64, motion, face)
-
         return jsonify({
-            "success": esp32_success,
-            "audio_base64": audio_b64,  # full base64 audio
+            "success": True,
+            "audio_base64": audio_b64,
             "motion": motion,
             "face": face,
             "spoken_text": spoken_text
         }), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 200
 
 
 @app.route("/clear_session", methods=["POST"])
