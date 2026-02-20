@@ -277,10 +277,33 @@ def send_to_esp32(esp32_ip, audio_b64, motion, face):
 @app.route("/talk", methods=["POST"])
 def talk():
     try:
-        # MIT App Inventor sends JSON as text string
         import json
-        text_data = request.get_data(as_text=True)
-        data = json.loads(text_data)
+        
+        # Try multiple ways to get the data
+        data = None
+        
+        # Method 1: Try getting JSON directly
+        try:
+            data = request.get_json(force=True, silent=True)
+        except:
+            pass
+        
+        # Method 2: Try parsing raw text data
+        if not data:
+            try:
+                text_data = request.get_data(as_text=True)
+                if text_data:
+                    data = json.loads(text_data)
+            except:
+                pass
+        
+        # Method 3: Try form data
+        if not data:
+            data = request.form.to_dict()
+        
+        if not data:
+            print(f"[DEBUG] Raw data: {request.get_data()}")
+            return jsonify({"success": False, "error": "Could not parse request data"}), 200
         
         user_text = data.get("text", "")
         session_id = data.get("session_id", "default")
