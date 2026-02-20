@@ -277,7 +277,7 @@ def send_to_esp32(esp32_ip, audio_b64, motion, face):
 @app.route("/talk", methods=["POST"])
 def talk():
     try:
-        data = request.get_json()
+        data = request.get_json(force=True)
         user_text = data.get("text", "")
         session_id = data.get("session_id", "default")
 
@@ -324,7 +324,7 @@ def talk():
 @app.route("/talk_text", methods=["POST"])
 def talk_text():
     try:
-        data = request.get_json()
+        data = request.get_json(force=True)
         user_text = data.get("text", "")
         session_id = data.get("session_id", "default")
 
@@ -352,7 +352,7 @@ def talk_text():
 
 @app.route("/clear_session", methods=["POST"])
 def clear_session():
-    data = request.get_json()
+    data = request.get_json(force=True)
     session_id = data.get("session_id", "default")
     if session_id in conversation_history:
         del conversation_history[session_id]
